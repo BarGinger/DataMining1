@@ -1,9 +1,9 @@
 """
 File: data_analysis.py
-Student 1: Bar Melinarskiy, student number: 2482975 (GitHub: BarGinger)
-Student 2: , student number:  (GitHub: )
-Student 3: , student number:  (GitHub: )
-Date: September 9, 2024
+Student 1: Bar Melinarskiy, student number: 2482975
+Student 2: Prathik Alex Matthai, student number: 9020675
+Student 3: Mohammed Bashabeeb, student number: 7060424
+Date: September 12, 2024
 Description: Assignment 1 - Classification Trees, Bagging and Random Forests
 Part 2: Data Analysis
 """

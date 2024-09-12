@@ -1,7 +1,9 @@
 """
 File: Tree.py
-Student: Bar Melinarskiy (GitHub: bar2466802)
-Date: April 27, 2024
+Student 1: Bar Melinarskiy, student number: 2482975
+Student 2: Prathik Alex Matthai, student number: 9020675
+Student 3: Mohammed Bashabeeb, student number: 7060424
+Date: September 12, 2024
 Description: Assignment 1 - Classification Trees, Bagging and Random Forests
 Tree class object
 """
