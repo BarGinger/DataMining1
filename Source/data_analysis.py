@@ -177,7 +177,7 @@ def pima_test():
         If you grow the tree on the complete data set with nmin = 20 and minleaf = 5,
         and you use this tree to predict the training sample itself, you should get the following confusion matrix:
 
-        | class \ Pred |   0   |   1   |
+        | class / Pred |   0   |   1   |
         ________________________________
         |  1           | 444   |   56  |
         _________________________________

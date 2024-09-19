@@ -59,15 +59,6 @@ class Node(object):
         """
         return self.data
 
-    # def get_data(self, num_samples: Optional[int]) -> np.ndarray:
-    #     """
-    #     Get current node's data
-    #     @return data
-    #     """
-    #     if num_samples is None or num_samples >= len(self.data):
-    #         return self.data
-    #     return np.random.choice(self.data, size=num_samples, replace=False)
-
     def get_unique_values(self) -> (np.ndarray, np.ndarray):
         """
         Get unique values and counts of the node's data

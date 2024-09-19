@@ -16,6 +16,12 @@ from collections import Counter
 
 
 def calc_standard_error(y_pred: np.ndarray, y_true: np.ndarray):
+    """
+            Calc the standard error of the predictions
+            @param y_pred: the predicted values of labels
+            @param y_true: the true values of labels
+            @return the standard error of the predictions
+            """
     # Check if the lengths of y_pred and y_true are the same
     if len(y_pred) != len(y_true):
         raise ValueError("y_pred and y_true must have the same length")
@@ -100,6 +106,11 @@ class Tree(object):
         pbar.close()
 
     def find_best_split(self, current_node) -> (Node, Node):
+        """
+            Main function to find the best split of current node
+            @return the new right and left child of current node (unchanged if current split is not possible
+             or not optimal).
+        """
         data = copy.deepcopy(current_node.get_data())
         classes = current_node.get_classes()
         features_count = data.shape[1]
@@ -108,27 +119,14 @@ class Tree(object):
         if self.nfeat < features_count:
             indices = np.random.choice(features_count, size=self.nfeat, replace=False)
 
-        # cols_values, cols_values_counts = current_node.get_unique_values()
         current_impurity = current_node.get_impurity()
         max_impurity = float('-inf')
         new_node_left, new_node_right = None, None
-
+        # Iterate over all the data's columns and check for the best split
         for col in indices:
-            # In class, we discussed that if we calculate the probability (in two classes case)
-            # of each distinct value and sort the array accordingly
-            # then there is no need to check consecutive values that have the same probability -
-            # meaning the optimal solution will not be there
             col_values = data[:, col]
             col_unique_vals = np.unique(col_values, axis=0)
-            # probs = np.array([np.mean(classes[col_values == val] == 0) for val in col_unique_vals])
-            # # sort in ascending order p(0|x=l1) <= p(0|x=l2) <= .... <= p(0|x=lL)
-            # sorted_indices = np.argsort(probs)
-            # probs_sorted = probs[sorted_indices]
-            # col_unique_vals_sorted = col_unique_vals[sorted_indices]
-            #
-            # # Leave only first instances of unique probability values
-            # unique_probs, unique_indices = np.unique(probs_sorted, return_index=True)
-            # unique_probs_values = col_unique_vals_sorted[unique_indices]
+            # iterate over all the unique values and check for the best split
             for i, value in enumerate(col_unique_vals):
                 new_node_left, new_node_right, max_impurity = self.calc_split_for_column(data, classes, col, value,
                                                                                          current_node, current_impurity,
@@ -138,6 +136,21 @@ class Tree(object):
 
     def calc_split_for_column(self, data, classes, col, value, current_node, current_impurity,
                               new_node_left, new_node_right, max_impurity):
+
+        """
+            For a given column unique values find the best split in the given node
+            @param data the array of the current node
+            @param classes (aka labels) array of the current node
+            @param col the current column
+            @param value the current value
+            @param current_node the current node
+            @param current_impurity the impurity of the current node
+            @param new_node_left the left child of the current node
+            @param new_node_right the right child of the current node
+            @param max_impurity the impurity of the current node
+            @return the new right and left child of current node (unchanged if current split is not possible
+             or not optimal), also the maximum impurity of the current node.
+            """
         filter_arr = data[:, col] <= value
         right_data, right_classes = data[filter_arr], classes[filter_arr]
         left_data, left_classes = data[~filter_arr], classes[~filter_arr]
@@ -188,6 +201,8 @@ class Tree(object):
     def print_tree(self, classes_names: np.ndarray, file_path=None):
         """
         Print the decision tree structure.
+        @:param classes_names the meaningful class names
+        @:param file_path the file path to save the tree information in
         """
         if self.root is not None:
             file = None
@@ -203,7 +218,11 @@ class Tree(object):
 
     def _print_tree_structure(self, node: Node, depth: int, classes_names=None, file=None):
         """
-        Recursively print the decision tree structure.
+        Helper function to recursively print the decision tree structure.
+        @:param node: the current node
+        @:param depth: the current depth
+        @:param classes_names the meaningful class names
+        @:param file the file path to save the tree information in
         """
         if node is None:
             return
