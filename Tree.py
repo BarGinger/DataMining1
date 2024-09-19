@@ -84,8 +84,12 @@ class Tree(object):
 
         while len(node_list) > 0:
             current_node = node_list.pop()
+            unique_classes = np.unique(current_node.get_classes())
             # to do a split the current node needs to be impure and must contain at least nmin observations
-            if current_node.get_impurity() > 0 and len(current_node.get_data()) >= self.nmin:
+            # Additionally, check that there is more than one class in the node,
+            # if not there is no need to continue splitting
+            if (current_node.get_impurity() > 0 and len(current_node.get_data()) >= self.nmin
+                    and len(unique_classes) > 1):
                 new_node_left, new_node_right = self.find_best_split(current_node)
                 if new_node_left and new_node_right:
                     node_list.extend([new_node_left, new_node_right])
@@ -110,32 +114,25 @@ class Tree(object):
         new_node_left, new_node_right = None, None
 
         for col in indices:
-            col_unique_vals = np.unique(data[:, col], axis=0)
+            # In class, we discussed that if we calculate the probability (in two classes case)
+            # of each distinct value and sort the array accordingly
+            # then there is no need to check consecutive values that have the same probability -
+            # meaning the optimal solution will not be there
+            col_values = data[:, col]
+            col_unique_vals = np.unique(col_values, axis=0)
+            # probs = np.array([np.mean(classes[col_values == val] == 0) for val in col_unique_vals])
+            # # sort in ascending order p(0|x=l1) <= p(0|x=l2) <= .... <= p(0|x=lL)
+            # sorted_indices = np.argsort(probs)
+            # probs_sorted = probs[sorted_indices]
+            # col_unique_vals_sorted = col_unique_vals[sorted_indices]
+            #
+            # # Leave only first instances of unique probability values
+            # unique_probs, unique_indices = np.unique(probs_sorted, return_index=True)
+            # unique_probs_values = col_unique_vals_sorted[unique_indices]
             for i, value in enumerate(col_unique_vals):
                 new_node_left, new_node_right, max_impurity = self.calc_split_for_column(data, classes, col, value,
                                                                                          current_node, current_impurity,
                                                                             new_node_left, new_node_right, max_impurity)
-                # filter_arr = data[:, col] <= value
-                # right_data, right_classes = data[filter_arr], classes[filter_arr]
-                # left_data, left_classes = data[~filter_arr], classes[~filter_arr]
-                #
-                # # Check the condition of minleaf
-                # # The minimum number of observations required for a leaf node.
-                # if len(left_data) < self.minleaf or len(right_data) < self.minleaf:
-                #     continue
-                #
-                # # Create left and right node looking for best split using the impurity_func
-                # # (gini-index) to determining the quality of a split.
-                # left_node = Node(x=left_data, y=left_classes, impurity_func=self.impurity_func)
-                # right_node = Node(x=right_data, y=right_classes, impurity_func=self.impurity_func)
-                # left_impurity = left_node.get_impurity() * (len(left_data) / len(data))
-                # right_impurity = right_node.get_impurity() * (len(right_data) / len(data))
-                # delta_impurity = current_impurity - (left_impurity + right_impurity)
-                # if max_impurity < delta_impurity:
-                #     max_impurity = delta_impurity
-                #     new_node_left, new_node_right = left_node, right_node
-                #     current_node.set_threshold(threshold=value)
-                #     current_node.set_y_index(index=col)
 
         return new_node_left, new_node_right
 
