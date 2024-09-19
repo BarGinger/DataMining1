@@ -13,7 +13,7 @@ import zipfile
 import numpy as np
 import pandas as pd
 from io import TextIOWrapper
-from main import tree_grow, tree_grow_b, tree_pred, tree_pred_b
+from Source.main import tree_grow, tree_grow_b, tree_pred, tree_pred_b
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve, auc, confusion_matrix
 
 from tabulate import tabulate
@@ -22,6 +22,11 @@ import matplotlib.pyplot as plt
 
 
 def read_csv_from_zip(zip_file_path: str) -> pd.DataFrame:
+    """
+        Read the csv of the data from the given zip file path
+        @param zip_file_path: path to the zip file
+        @return a dataframe of the given zip content
+        """
     dfs = []
     with zipfile.ZipFile(zip_file_path, 'r') as zip_file:
         # Iterate over each file in the zip archive
@@ -75,6 +80,13 @@ def get_x_y(df: pd.DataFrame) -> (np.ndarray, np.ndarray):
 
 
 def compute_metrics(y_true, y_pred, title=""):
+    """
+        Compute the quality metrics for given predicted value compared to true labels.
+        @param y_true: true labels
+        @param y_pred: predicted values
+        @param title: title for file to save results
+        @:return the calculated metrics
+        """
     # Accuracy
     accuracy = accuracy_score(y_true, y_pred)
 
@@ -106,7 +118,7 @@ def compute_metrics(y_true, y_pred, title=""):
         "roc_auc": roc_auc
     }
     df_metrics = pd.DataFrame([df_metrics])
-    result_txt = f"{title}_results.txt"
+    result_txt = f"Output/{title}_results.txt"
     plot_title = f"Confusion Matrix for {title}"
 
     with open(result_txt, "w") as file:
@@ -122,7 +134,6 @@ def compute_metrics(y_true, y_pred, title=""):
     print(tabulate(df_metrics, headers='keys', tablefmt='psql'))
     print(plot_title + ":")
     print(confusion_matrix_data)
-    # get pandas dataframe
     cm_len = len(confusion_matrix_data)
     df_cm = pd.DataFrame(confusion_matrix_data, index=range(0, cm_len), columns=range(0, cm_len))
     group_names = ['True Negative', 'False Positive', 'False Negative', 'True Positive']
@@ -136,7 +147,7 @@ def compute_metrics(y_true, y_pred, title=""):
     sns.heatmap(df_cm, annot=labels, fmt='', cmap='Blues', cbar=False,
                 annot_kws={"size": 14, "fontweight": "bold"})  # Adjust font properties
     plt.title(plot_title, fontsize=16, fontweight='bold')  # Make title bold and larger
-    file_name = f"{title}_confusion_matrix.png"
+    file_name = f"Output/{title}_confusion_matrix.png"
     plt.savefig(file_name, dpi=450)
     plt.show()
 
@@ -150,7 +161,7 @@ def credit_test():
        tree as presented in the lecture slides.
        """
     print("Credit test")
-    df_credit = pd.read_csv("credit.txt")
+    df_credit = pd.read_csv("Data/credit.txt")
     y_credit = np.array(df_credit['class'])
     x_credit = df_credit.drop(columns=['class'], inplace=False).to_numpy()
     tree_credit = tree_grow(x=x_credit, y=y_credit, nmin=2, minleaf=1, nfeat=x_credit.shape[1])
@@ -175,7 +186,7 @@ def pima_test():
         """
     print("\n*******************************************************", flush=True)
     print("pima")
-    df_pima = pd.read_csv("pima.txt", header=None, sep=',')
+    df_pima = pd.read_csv("Data/pima.txt", header=None, sep=',')
     # Extracting the last column into an array
     y_pima = df_pima.iloc[:, -1].to_numpy()
     x_pima = df_pima.iloc[:, :-1].to_numpy()
@@ -192,7 +203,7 @@ def single_tree(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_
     y1_pred = tree_pred(x=x_test, tr=tree1)
     df_metrics_1, df_cm_1 = compute_metrics(y_true=y_test, y_pred=y1_pred, title="a single classification tree")
     print(f"\nResults tree1: \n {df_metrics_1}", flush=True)
-    filename_tree = "single_tree_splits.txt"
+    filename_tree = "Output/single_tree_splits.txt"
     tree1.print_tree(classes_names=columns, file_path=filename_tree)
 
     return df_metrics_1
@@ -261,7 +272,7 @@ def bar_plot_stats(df):
     plt.yticks(fontsize=18, color='navy')
     plt.subplots_adjust(top=0.85)
 
-    file_name = "releases_bar_plot.png"
+    file_name = "Output/releases_bar_plot.png"
     plt.savefig(file_name, dpi=450)
 
     # Display the plot
@@ -272,7 +283,7 @@ if __name__ == "__main__":
     credit_test()
     pima_test()
 
-    df = read_csv_from_zip("promise-2_0a-packages-csv.zip")
+    df = read_csv_from_zip("Data/promise-2_0a-packages-csv.zip")
     df_train = df[df['__filename__'] == 'eclipse-metrics-packages-2.0.csv']
     X_train, Y_train, columns_train = get_x_y(df_train)
     df_test = df[df['__filename__'] == 'eclipse-metrics-packages-3.0.csv']
@@ -294,7 +305,7 @@ if __name__ == "__main__":
     # Melt the DataFrame to long format
     df_melted = df_all_metrics.melt(id_vars='Model', var_name='Metric', value_name='Value')
 
-    df_melted.to_csv("df_melted.csv", sep='\t', encoding='utf-8')
+    df_melted.to_csv("Output/df_melted.csv", sep='\t', encoding='utf-8')
 
     # Create the bar plot
     plt.figure(figsize=(20, 16))
@@ -329,7 +340,7 @@ if __name__ == "__main__":
                )
 
     plt.subplots_adjust(top=0.85)
-    file_name = "Comparison of Classification Metrics.png"
+    file_name = "Output/Comparison of Classification Metrics.png"
     plt.savefig(file_name, dpi=450)
     plt.show()
 
