@@ -13,8 +13,10 @@ import zipfile
 import numpy as np
 import pandas as pd
 from io import TextIOWrapper
-from Source.main import tree_grow, tree_grow_b, tree_pred, tree_pred_b
+from main import tree_grow, tree_grow_b, tree_pred, tree_pred_b
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_curve, auc, confusion_matrix
+from mlxtend.evaluate import mcnemar
+from mlxtend.evaluate import mcnemar_table
 
 from tabulate import tabulate
 import seaborn as sns
@@ -206,7 +208,7 @@ def single_tree(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_
     filename_tree = "Output/single_tree_splits.txt"
     tree1.print_tree(classes_names=columns, file_path=filename_tree)
 
-    return df_metrics_1
+    return df_metrics_1, y1_pred
 
 
 def bagging_tree(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray):
@@ -217,7 +219,7 @@ def bagging_tree(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y
     y2_pred = tree_pred_b(x=x_test, tr=trees2)
     df_metrics_2, df_cm_2 = compute_metrics(y_true=y_test, y_pred=y2_pred, title="Bagging Tree")
 
-    return df_metrics_2
+    return df_metrics_2, y2_pred
 
 
 def random_forests(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray):
@@ -227,7 +229,8 @@ def random_forests(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
     trees3 = tree_grow_b(x=x_train, y=y_train, nmin=15, minleaf=5, nfeat=6, m=100)
     y3_pred = tree_pred_b(x=x_test, tr=trees3)
     df_metrics_3, df_cm_3 = compute_metrics(y_true=y_test, y_pred=y3_pred, title="Random Forests")
-    return df_metrics_3
+    
+    return df_metrics_3, y3_pred
 
 
 # Function to extract version number
@@ -235,6 +238,112 @@ def extract_version(filename):
     import re
     match = re.search(r'\d+\.\d+', filename)
     return match.group(0) if match else None
+
+
+
+
+
+#########################  STATSTICAL TEST FOR SIGNIFICANT TESTING PART ###############################################################
+
+
+
+# Function to create the contingency matrix
+def get_contingency_matrix(true_labels, model1_preds, model2_preds):
+    """
+    Computes the contingency matrix for two models' predictions using mlxtend's mcnemar_table.
+    
+    Parameters:
+    - true_labels: Ground truth labels
+    - model1_preds: Predictions from the first model
+    - model2_preds: Predictions from the second model
+    
+    Returns:
+    - contingency_matrix: A 2x2 numpy array [[a, b], [c, d]]
+    """
+    contingency_matrix = mcnemar_table(y_target=true_labels, 
+                                       y_model1=model1_preds, 
+                                       y_model2=model2_preds)
+    return contingency_matrix
+
+
+
+# Function to compute McNemar's test using mlxtend's mcnemar function
+def mcnemar_test(contingency_matrix):
+    """
+    Performs McNemar's test for two models' predictions using mlxtend's mcnemar function.
+    
+    Parameters:
+    - contingency_matrix: A 2x2 numpy array [[a, b], [c, d]]
+    
+    Returns:
+    - chi2_stat: The chi-squared statistic
+    - p_value: The p-value corresponding to the chi-squared statistic
+    """
+    chi2_stat, p_value = mcnemar(ary=contingency_matrix, corrected=True)
+    return chi2_stat, p_value
+
+
+
+# Function to compare models
+def compare_models(true_labels, best_model_preds, other_model1_preds, other_model2_preds):
+    """
+    Compare the best model with two other models using McNemar's test.
+
+    Parameters:
+    - true_labels: Ground truth labels
+    - best_model_preds: Predictions from the best model
+    - other_model1_preds: Predictions from another model to compare
+    - other_model2_preds: Predictions from another model to compare
+
+    Returns:
+    - A dictionary with chi-squared statistics and p-values for both comparisons,
+      including a print statement showing if H₀ is accepted or rejected.
+    """
+    results = {}
+    
+    # Set the significance level (alpha)
+    alpha = 0.05
+    
+    # Compare best model with the first model
+    cm1 = get_contingency_matrix(true_labels, best_model_preds, other_model1_preds)
+    chi2_1, p_val_1 = mcnemar_test(cm1)
+    results['best_vs_model1'] = {'chi2': chi2_1, 'p_value': p_val_1}
+    
+    # Interpret the result for comparison 1
+    print("\nComparison: Best Model vs Model 1")
+    if p_val_1 < alpha:
+        print(f"p-value = {p_val_1:.4f}, which is less than {alpha}.")
+        print("We reject the null hypothesis (H₀). There is a significant difference between the models.")
+        print("This means that the best model's accuracy is significantly different from Model 1's accuracy.")
+    else:
+        print(f"p-value = {p_val_1:.4f}, which is greater than {alpha}.")
+        print("We fail to reject the null hypothesis (H₀). There is no significant difference between the models.")
+        print("This means that the best model's accuracy is not significantly different from Model 1's accuracy.")
+    
+    # Compare best model with the second model
+    cm2 = get_contingency_matrix(true_labels, best_model_preds, other_model2_preds)
+    chi2_2, p_val_2 = mcnemar_test(cm2)
+    results['best_vs_model2'] = {'chi2': chi2_2, 'p_value': p_val_2}
+    
+    # Interpret the result for comparison 2
+    print("\nComparison: Best Model vs Model 2")
+    if p_val_2 < alpha:
+        print(f"p-value = {p_val_2:.4f}, which is less than {alpha}.")
+        print("We reject the null hypothesis (H₀). There is a significant difference between the models.")
+        print("This means that the best model's accuracy is significantly different from Model 2's accuracy.")
+    else:
+        print(f"p-value = {p_val_2:.4f}, which is greater than {alpha}.")
+        print("We fail to reject the null hypothesis (H₀). There is no significant difference between the models.")
+        print("This means that the best model's accuracy is not significantly different from Model 2's accuracy.")
+    
+    return results
+
+
+
+
+########################### END STATSTICAL TEST FOR SIGNIFICANT TESTING PART ###########################################################
+
+
 
 
 def bar_plot_stats(df):
@@ -277,6 +386,8 @@ def bar_plot_stats(df):
 
     # Display the plot
     plt.show()
+    
+    
 
 
 if __name__ == "__main__":
@@ -291,9 +402,10 @@ if __name__ == "__main__":
 
     bar_plot_stats(df)
 
-    df_metrics_1 = single_tree(x_train=X_train, y_train=Y_train, x_test=X_test, y_test=Y_test, columns=columns_train)
-    df_metrics_2 = bagging_tree(x_train=X_train, y_train=Y_train, x_test=X_test, y_test=Y_test)
-    df_metrics_3 = random_forests(x_train=X_train, y_train=Y_train, x_test=X_test, y_test=Y_test)
+  # Get metrics and predicted labels for each model
+    df_metrics_1, y1_pred = single_tree(x_train=X_train, y_train=Y_train, x_test=X_test, y_test=Y_test, columns=columns_train)
+    df_metrics_2, y2_pred = bagging_tree(x_train=X_train, y_train=Y_train, x_test=X_test, y_test=Y_test)
+    df_metrics_3, y3_pred = random_forests(x_train=X_train, y_train=Y_train, x_test=X_test, y_test=Y_test)
 
     # Optionally, you can add a column to identify the model
     df_metrics_1['Model'] = 'Single Tree'
@@ -343,5 +455,31 @@ if __name__ == "__main__":
     file_name = "Output/Comparison of Classification Metrics.png"
     plt.savefig(file_name, dpi=450)
     plt.show()
+    
+    
+    
+    print(" ")
+    print("=========================================== STATSTICAL TEST FOR SIGNIFICANT TESTING ==================================================")
+    
+    
+    true_labels = Y_test  # Ground truth labels
+    best_model_preds = y2_pred  # Bagging Tree predictions (as best model)
+    other_model1_preds = y3_pred  # Random Forest predictions
+    other_model2_preds = y1_pred  # Single Tree predictions
+      
+  # Comparing models
+    results = compare_models(true_labels, best_model_preds, other_model1_preds, other_model2_preds)
+
+    # Print the results
+    print(results)    
+    
+    
+    
+    print(" ")
+    print("=========================================== STATSTICAL TEST FOR SIGNIFICANT TESTING DONE ==================================================")
+    print(" ")
+
+    
+    
 
     print("Done!")
