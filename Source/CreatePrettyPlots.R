@@ -1,141 +1,218 @@
+# Load necessary libraries
 library(ggplot2)
 library(reshape2)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(pheatmap)
+library(tibble)
+library(purrr)
+library(broom)
+library(MASS)
 
-# Specify the path to the zip file and the name of the file within the zip
-zipfile <- "Data/promise-2_0a-packages-csv.zip"
+# constants
+DATA_FOLDR <- "Data/"
+OUTPUT_FOLDR <- "Output/"
 
-# List all files in the zip archive
-files_in_zip <- unzip(zipfile, list = TRUE)
+# Specify the path to the zip file
+zipfile <- paste(DATA_FOLDR, "promise-2_0a-packages-csv.zip", sep="")
 
-# Filter only CSV files (assuming the extension is '.csv')
-csv_files <- files_in_zip$Name[grep("\\.csv$", files_in_zip$Name)]
+# Function to read and preprocess CSV files
+read_and_preprocess <- function(zipfile, columns_to_keep) {
+  files_in_zip <- unzip(zipfile, list = TRUE)
+  csv_files <- files_in_zip$Name[grep("\\.csv$", files_in_zip$Name)]
+  
+  df_list <- list()
+  
+  for (csv_file in csv_files) {
+    temp_df <- read.csv(unz(zipfile, csv_file), sep = ";", stringsAsFactors = FALSE)
+    temp_df$label <- ifelse(temp_df$post > 1, 1, 0)
+    temp_df <- temp_df[, columns_to_keep]
+    temp_df <- temp_df[, sapply(temp_df, is.numeric)]
+    temp_df$release_version <- as.numeric(gsub(".*-([0-9]+\\.[0-9]+)\\.csv$", "\\1", csv_file))
+    df_list[[csv_file]] <- temp_df
+  }
+  
+  return(do.call(rbind, df_list))
+}
 
-# Initialize an empty list to store each data frame
-df_list <- list()
-
-# Define the columns to keep
+# Define columns to keep
 columns_to_keep <- c(
   'ACD_avg', 'ACD_max', 'ACD_sum', 'FOUT_avg', 'FOUT_max', 'FOUT_sum',
   'MLOC_avg', 'MLOC_max', 'MLOC_sum', 'NBD_avg', 'NBD_max', 'NBD_sum',
-  'NOCU', 'NOF_avg', 'NOF_max', 'NOF_sum',
-  'NOI_avg', 'NOI_max', 'NOI_sum', 'NOM_avg', 'NOM_max', 'NOM_sum',
-  'NOT_avg', 'NOT_max', 'NOT_sum', 'NSF_avg', 'NSF_max', 'NSF_sum',
-  'NSM_avg', 'NSM_max', 'NSM_sum', 'PAR_avg', 'PAR_max', 'PAR_sum',
-  'pre', 'TLOC_avg', 'TLOC_max', 'TLOC_sum', 'VG_avg', 'VG_max', 'VG_sum'
+  'NOCU', 'NOF_avg', 'NOF_max', 'NOF_sum', 'NOI_avg', 'NOI_max', 'NOI_sum',
+  'NOM_avg', 'NOM_max', 'NOM_sum', 'NOT_avg', 'NOT_max', 'NOT_sum', 
+  'NSF_avg', 'NSF_max', 'NSF_sum', 'NSM_avg', 'NSM_max', 'NSM_sum',
+  'PAR_avg', 'PAR_max', 'PAR_sum', 'pre', 'TLOC_avg', 'TLOC_max', 'TLOC_sum', 
+  'VG_avg', 'VG_max', 'VG_sum', 'label'
 )
 
-# Loop through each CSV file in the zip
-for (csv_file in csv_files) {
-  # Read the CSV file
-  temp_df <- read.csv(unz(zipfile, csv_file), sep = ";", stringsAsFactors = FALSE)
-  
-  
-  # Keep only the specified columns
-  temp_df <- temp_df[, columns_to_keep]
-  
-  # Drop non-numeric columns
-  temp_df <- temp_df[, sapply(temp_df, is.numeric)]
-  
-  # Add a new column with the file name (without the ".csv" extension)
-  temp_df$source_file <- gsub("\\.csv$", "", csv_file)
-  
-  # Append the data frame to the list
-  df_list[[csv_file]] <- temp_df
+# Read and preprocess the data
+df_combined <- read_and_preprocess(zipfile, columns_to_keep)
+
+## Linear Discriminant Analysis (LDA)
+perform_lda <- function(df) {
+  lda_model <- lda(label ~ ., data = df)
+  lda_result <- predict(lda_model)$x
+  return(lda_result)
 }
 
-# Combine all data frames into one
-combined_df <- do.call(rbind, df_list)
+lda_result <- as.data.frame(perform_lda(df_combined))  
+lda_result$label <- df_combined$label
+lda_result$release_version <- df_combined$release_version  
 
-# View the combined data frame
-head(combined_df)
-
-# Exclude the 'source_file' column
-all_columns_except_source <- setdiff(colnames(combined_df), "source_file")
-
-# Calculate variance for all columns except 'source_file' by grouping with 'source_file'
-variance_df <- aggregate(. ~ source_file, combined_df[, c(all_columns_except_source, "source_file")], var)
-
-# Assuming combined_df is your data frame and source_file is the column to group by
-# Calculate variance for each attribute
-variance_df <- aggregate(. ~ source_file, combined_df[, c(all_columns_except_source, "source_file")], var)
-
-# Remove the 'source_file' column from variance_df for further processing
-variances <- variance_df[, -which(names(variance_df) == "source_file")]
-
-# Compute the mean variance for each attribute
-mean_variances <- colMeans(variances, na.rm = TRUE)
-
-# Get the indices of top 5 highest and lowest variance attributes
-top5_indices <- order(mean_variances, decreasing = TRUE)[1:10]
-bottom5_indices <- order(mean_variances, decreasing = FALSE)[1:10]
-
-# Get the names of these attributes
-top5_attributes <- names(mean_variances)[top5_indices]
-bottom5_attributes <- names(mean_variances)[bottom5_indices]
-
-# Create a filtered data frame with only the interesting attributes
-filtered_df <- combined_df[, c(top5_attributes, "source_file")]
-
-# Optionally, you can compute variances again for the filtered data frame
-filtered_variances_df <- aggregate(. ~ source_file, filtered_df, var)
-
-# Convert to long format for easier plotting
-variance_long <- reshape2::melt(filtered_df, id.vars = "source_file")
-
-# Plot the variance for each attribute across different 'source_file'
-ggplot(variance_long, aes(x = variable, y = value, fill = source_file)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(title = "Top 10 Most Variance Attributes by Source File", x = "Attributes", y = "Variance")
-
-
-# Create a filtered data frame with only the interesting attributes
-filtered_df_btm <- combined_df[, c(bottom5_attributes, "source_file")]
-
-# Optionally, you can compute variances again for the filtered data frame
-filtered_variances_df_btm <- aggregate(. ~ source_file, filtered_df_btm, var)
-
-# Convert to long format for easier plotting
-variance_long_btm <- reshape2::melt(filtered_df_btm, id.vars = "source_file")
-
-# Plot the variance for each attribute across different 'source_file'
-ggplot(variance_long_btm, aes(x = variable, y = value, fill = source_file)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-  labs(title = "Top 10 Least Variance Attributes by Source File", x = "Attributes", y = "Variance")
-
-
-# Select some important numeric columns for correlation analysis
-selected_columns <- combined_df[, c("ACD_avg", "FOUT_avg", "MLOC_avg", "VG_avg", "source_file")]
-
-# Calculate correlation for these columns
-cor_matrix <- cor(selected_columns[ , -ncol(selected_columns)], use = "complete.obs")
-
-# Convert correlation matrix to long format
-cor_long <- melt(cor_matrix)
-
-# Plot heatmap
-ggplot(cor_long, aes(Var1, Var2, fill = value)) +
-  geom_tile() +
-  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0, limit = c(-1,1)) +
+plot <- ggplot(lda_result, aes(x = LD1, fill = factor(label))) +
+  geom_density(alpha = 0.6) +
+  labs(title = "LDA: Distribution of LD1 by Release Version", 
+       x = "Linear Discriminant 1", fill = "Class Label") +
   theme_minimal() +
-  labs(title = "Correlation Heatmap", x = "Attribute 1", y = "Attribute 2")
+  facet_wrap(~ release_version)
 
-library(ggplot2)
+ggsave(paste(OUTPUT_FOLDR, "Distribution of LD1 by Release Version.png", sep=""), 
+       plot = plot, bg = "white", width = 10, height = 6)
+plot
 
-# Subset numeric columns for clustering
-subset_df <- combined_df[, c("MLOC_sum", "FOUT_sum")]
+# Adjusted Fisher Score Calculation by Label, Faceted by Release Version
+calculate_fisher_score <- function(df) {
+  labels <- df$label
+  df <- df[, !(names(df) %in% c("release_version", "label"))]
+  
+  means <- colMeans(df[labels == 1, ]) - colMeans(df[labels == 0, ])
+  sds <- apply(df, 2, function(col) sd(col[labels == 1]) + sd(col[labels == 0]))
+  fisher_score <- means^2 / sds
+  
+  return(fisher_score)
+}
 
-# Apply K-means clustering
-set.seed(123)
-kmeans_result <- kmeans(subset_df, centers = 3)
+# Split data by release_version to calculate Fisher scores for each version
+fisher_scores_by_version <- lapply(split(df_combined, df_combined$release_version), function(df) {
+  fisher_scores <- calculate_fisher_score(df)
+  return(data.frame(
+    attribute = names(fisher_scores), 
+    fisher_score = fisher_scores, 
+    release_version = unique(df$release_version)
+  ))
+})
 
-# Add cluster results to data frame
-combined_df$cluster <- as.factor(kmeans_result$cluster)
+# Combine the Fisher scores across all release versions into one data frame
+# Add a new column to identify if the attribute is 'TLOC_sum'
+fisher_scores_df <- do.call(rbind, fisher_scores_by_version)
+fisher_scores_df <- fisher_scores_df %>%
+  mutate(is_last = (attribute == 'TLOC_sum'))
 
-# Plot clusters
-ggplot(combined_df, aes(x = MLOC_sum, y = FOUT_sum, color = cluster)) +
-  geom_point() +
-  labs(title = "K-means Clustering on MLOC_sum and FOUT_sum", x = "MLOC_sum", y = "FOUT_sum")
+# Plot the Fisher scores, faceted by release_version with adjusted text positioning
+plot <- ggplot(fisher_scores_df, aes(x = reorder(attribute, -fisher_score), 
+                                     y = fisher_score, fill = factor(release_version))) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  coord_flip() +
+  geom_text(aes(label = sprintf("%.3f", fisher_score), 
+                hjust = ifelse(is_last, 1, -0.1)), 
+            size = 3.5, color = "black") +
+  facet_wrap(~ release_version, scales = "free_y") +
+  labs(title = "Fisher Score of Attributes for Labels Faceted by Release Version", 
+       x = "Attribute", y = "Fisher Score", fill = "Release Version") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10), 
+        axis.title.y = element_text(margin = margin(r = 10)),
+        axis.text.x = element_text(margin = margin(t = 5)),
+        strip.text = element_text(size = 10), 
+        plot.margin = margin(10, 10, 10, 10),  
+        panel.spacing = unit(1, "lines"),  
+        legend.position = "right")
+
+# Save the plot with an increased width
+ggsave(paste(OUTPUT_FOLDR, "Fisher Score Faceted by Release Version.png", sep = ""), 
+       plot = plot, bg = "white", width = 14, height = 6)  
+plot
 
 
+
+
+
+
+
+## Correlation Matrix of Attributes by Label
+correlation_matrix <- df_combined %>%
+  dplyr::select(-release_version) %>%
+  cor(use = "complete.obs")
+
+plot <- pheatmap(correlation_matrix, cluster_rows = TRUE, cluster_cols = TRUE)
+ggsave(paste(OUTPUT_FOLDR, "Feature correlation heatmap.png", sep=""), plot = plot, 
+       bg = "white", width = 10, height = 6)
+plot
+
+## Correlation between each feature and the label
+numeric_df <- df_combined %>% select_if(is.numeric)
+correlation_with_label <- cor(numeric_df, use = "complete.obs")
+
+correlation_df <- data.frame(
+  feature = rownames(correlation_with_label)[-which(colnames(correlation_with_label) %in% 
+                                                      c("label", "release_version"))],
+  correlation = correlation_with_label[, "label"][-which(colnames(correlation_with_label) %in% 
+                                                           c("label", "release_version"))]
+)
+
+plot <- ggplot(correlation_df, aes(x = reorder(feature, correlation), y = correlation, fill = correlation)) +
+  geom_bar(stat = "identity", width = 0.7) +
+  scale_fill_gradient2(low = "red", mid = "white", high = "blue", 
+                       midpoint = 0, limits = c(-1, 1), na.value = "grey") +
+  coord_flip() +
+  ylim(-1, 1) +
+  geom_text(aes(label = sprintf("%.3f", correlation)), 
+            hjust = -0.55, vjust = 0.5, color = "black", size = 3) +
+  theme_minimal() +
+  labs(title = "Correlation of Features with Label", 
+       x = "Features", y = "Correlation with Label") +
+  theme(axis.text.y = element_text(size = 10), 
+        axis.title.y = element_text(margin = margin(r = 10)), 
+        axis.text.x = element_text(margin = margin(t = 5)))
+
+ggsave(paste(OUTPUT_FOLDR, "Correlation of Features with Label.png", sep=""), plot = plot, 
+       bg = "white", width = 10, height = 6)
+plot
+
+## Correlation plot for each release version
+correlation_list <- list()
+
+for (version in unique(df_combined$release_version)) {
+  filtered_df <- df_combined %>% filter(release_version == version)
+  filtered_numeric_df <- filtered_df %>% select_if(is.numeric)
+  filtered_numeric_df <- filtered_numeric_df[, sapply(filtered_numeric_df, var, na.rm = TRUE) > 0]
+  
+  if (ncol(filtered_numeric_df) > 1) {
+    correlation_with_label <- cor(filtered_numeric_df, use = "complete.obs")
+    correlation_df_version <- data.frame(
+      feature = rownames(correlation_with_label)[-which(colnames(correlation_with_label) == "label")],  
+      correlation = correlation_with_label[, "label"][-which(colnames(correlation_with_label) == "label")]
+    )
+    
+    if (nrow(correlation_df_version) > 0) {
+      correlation_df_version$release_version <- version
+      correlation_list[[as.character(version)]] <- correlation_df_version
+    }
+  } else {
+    message(paste("Skipping version:", version, "due to insufficient data for correlation."))
+  }
+}
+
+all_correlation_df <- do.call(rbind, Filter(Negate(is.null), correlation_list))
+
+plot <- ggplot(all_correlation_df, aes(x = reorder(feature, correlation), y = correlation, fill = correlation)) +
+  geom_bar(stat = "identity", width = 0.7) +
+  scale_fill_gradient2(low = "red", mid = "white", high = "blue", 
+                       midpoint = 0, limits = c(-1, 1), na.value = "grey") +
+  coord_flip() +
+  ylim(-1, 1) +
+  geom_text(aes(label = sprintf("%.3f", correlation)), 
+            hjust = -0.55, vjust = 0.5, color = "black", size = 3) +
+  theme_minimal() +
+  labs(title = "Correlation of Features with Label by Release Version", 
+       x = "Features", y = "Correlation with Label") +
+  facet_wrap(~release_version) +
+  theme(axis.text.y = element_text(size = 10), 
+        axis.title.y = element_text(margin = margin(r = 10)), 
+        axis.text.x = element_text(margin = margin(t = 5)))
+
+ggsave(paste(OUTPUT_FOLDR, "Correlation of Features with Label by Release Version.png", sep=""), 
+       plot = plot, bg = "white", width = 10, height = 6)
+plot
