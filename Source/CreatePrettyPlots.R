@@ -9,6 +9,8 @@ library(tibble)
 library(purrr)
 library(broom)
 library(MASS)
+library(scales)     # Functions to format things nicely
+
 
 # constants
 DATA_FOLDR <- "Data/"
@@ -104,25 +106,34 @@ fisher_scores_df <- fisher_scores_df %>%
 plot <- ggplot(fisher_scores_df, aes(x = reorder(attribute, -fisher_score), 
                                      y = fisher_score, fill = factor(release_version))) +
   geom_bar(stat = "identity", position = "dodge", width = 0.7) +
-  coord_flip() +
-  geom_text(aes(label = sprintf("%.3f", fisher_score), 
-                hjust = ifelse(is_last, 1, -0.1)), 
-            size = 3.5, color = "black") +
-  facet_wrap(~ release_version, scales = "free_y") +
-  labs(title = "Fisher Score of Attributes for Labels Faceted by Release Version", 
+  geom_text(aes(label = sprintf("%.3f", fisher_score), hjust = -0.08),  # Move text above bars
+            size = 4, angle = 90, color = "black") +  # Rotate text to be vertical
+  facet_wrap(~ release_version, scales = "free_y", ncol = 1) +
+  scale_x_discrete(expand = expansion(mult = c(0.05, 0.009))) +  # Add more space between x-axis features
+  scale_y_continuous(labels = comma, expand = expansion(mult = c(0.05, 0.4))) +
+  labs(title = "Comparison of Fisher Scores for Attributes Across Different Release Versions", 
        x = "Attribute", y = "Fisher Score", fill = "Release Version") +
   theme_minimal() +
-  theme(axis.text.y = element_text(size = 10), 
-        axis.title.y = element_text(margin = margin(r = 10)),
-        axis.text.x = element_text(margin = margin(t = 5)),
-        strip.text = element_text(size = 10), 
-        plot.margin = margin(10, 10, 10, 10),  
-        panel.spacing = unit(1, "lines"),  
-        legend.position = "right")
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1),  # Angle and hjust for feature names
+        axis.text.y = element_text(size = 14.5), 
+        axis.title.y = element_text(size = 18, color = "grey3", margin = margin(r = 16)),
+        axis.title.x = element_text(size = 18, color = "grey3"),
+        strip.text = element_text(size = 14), 
+        plot.margin = margin(20, 10, 20, 10),  # Adjust margins to prevent text cutoff
+        panel.spacing.x=unit(0.5, "lines"),
+        panel.spacing.y=unit(0.8, "lines"),  # Space between panels
+        title = element_text(size = 16, face = "bold", hjust = 0.5, margin = margin(b = 10)),  # Center and adjust title
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 15, color = "grey3"),
+        legend.position = "right",  # Legend on the right
+        legend.justification = "top",  # Move legend up
+        # legend.box.spacing = unit(0.3, "cm"),  # Reduce space between plot and legend
+        legend.key.size = unit(1, "cm"))  # Increase legend key size for better balance
+
 
 # Save the plot with an increased width
 ggsave(paste(OUTPUT_FOLDR, "Fisher Score Faceted by Release Version.png", sep = ""), 
-       plot = plot, bg = "white", width = 14, height = 6)  
+       plot = plot, width = 18, height = 7)  
 plot
 
 
@@ -202,17 +213,29 @@ plot <- ggplot(all_correlation_df, aes(x = reorder(feature, correlation), y = co
   scale_fill_gradient2(low = "red", mid = "white", high = "blue", 
                        midpoint = 0, limits = c(-1, 1), na.value = "grey") +
   coord_flip() +
-  ylim(-1, 1) +
+  ylim(-0.6, 0.6) +
   geom_text(aes(label = sprintf("%.3f", correlation)), 
-            hjust = -0.55, vjust = 0.5, color = "black", size = 3) +
+            hjust = -0.55, vjust = 0.5, color = "black", size = 3.8) +
   theme_minimal() +
-  labs(title = "Correlation of Features with Label by Release Version", 
+  labs(title = "Correlation Between Features and Label Across Different Release Versions", 
        x = "Features", y = "Correlation with Label") +
   facet_wrap(~release_version) +
-  theme(axis.text.y = element_text(size = 10), 
-        axis.title.y = element_text(margin = margin(r = 10)), 
-        axis.text.x = element_text(margin = margin(t = 5)))
+  theme(axis.text.x = element_text(size = 14, angle = 45, hjust = 1),  # Angle and hjust for feature names
+        axis.text.y = element_text(size = 15.5), 
+        axis.title.y = element_text(size = 18, color = "grey3", margin = margin(r = 16)),
+        axis.title.x = element_text(size = 18, color = "grey3"),
+        strip.text = element_text(size = 14), 
+        plot.margin = margin(20, 10, 20, 10),  # Adjust margins to prevent text cutoff
+        panel.spacing.x=unit(0.5, "lines"),
+        panel.spacing.y=unit(0.8, "lines"),  # Space between panels
+        title = element_text(size = 16, face = "bold", hjust = 0.5, margin = margin(b = 10)),  # Center and adjust title
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 15, color = "grey3"),
+        legend.position = "right",  # Legend on the right
+        legend.justification = "top",  # Move legend up
+        # legend.box.spacing = unit(0.3, "cm"),  # Reduce space between plot and legend
+        legend.key.size = unit(1, "cm"))  # Increase legend key size for better balance
 
 ggsave(paste(OUTPUT_FOLDR, "Correlation of Features with Label by Release Version.png", sep=""), 
-       plot = plot, bg = "white", width = 10, height = 6)
+       plot = plot, bg = "white", width = 18, height = 13)
 plot
