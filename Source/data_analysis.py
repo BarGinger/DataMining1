@@ -285,18 +285,18 @@ def mcnemar_test(contingency_matrix):
 
 
 # Function to compare models
-def compare_models(true_labels, best_model_preds, other_model1_preds, other_model2_preds):
+def compare_models(true_labels, model1_preds, model2_preds, model3_preds):
     """
-    Compare the best model with two other models using McNemar's test.
+    Compare three models pairwise using McNemar's test.
 
     Parameters:
     - true_labels: Ground truth labels
-    - best_model_preds: Predictions from the best model
-    - other_model1_preds: Predictions from another model to compare
-    - other_model2_preds: Predictions from another model to compare
+    - model1_preds: Predictions from Model 1
+    - model2_preds: Predictions from Model 2
+    - model3_preds: Predictions from Model 3
 
     Returns:
-    - A dictionary with chi-squared statistics and p-values for both comparisons,
+    - A dictionary with chi-squared statistics and p-values for all pairwise comparisons,
       including a print statement showing if H₀ is accepted or rejected.
     """
     results = {}
@@ -304,40 +304,55 @@ def compare_models(true_labels, best_model_preds, other_model1_preds, other_mode
     # Set the significance level (alpha)
     alpha = 0.05
     
-    # Compare best model with the first model
-    cm1 = get_contingency_matrix(true_labels, best_model_preds, other_model1_preds)
+    # Compare Model 1 with Model 2
+    cm1 = get_contingency_matrix(true_labels, model1_preds, model2_preds)
     chi2_1, p_val_1 = mcnemar_test(cm1)
-    results['best_vs_model1'] = {'chi2': chi2_1, 'p_value': p_val_1}
+    results['model1_vs_model2'] = {'chi2': chi2_1, 'p_value': p_val_1}
     
-    # Interpret the result for comparison 1
-    print("\nComparison: Best Model vs Model 1")
+    # Interpret the result for Model 1 vs Model 2
+    print("\nComparison: Model 1 vs Model 2")
     if p_val_1 < alpha:
         print(f"p-value = {p_val_1:.4f}, which is less than {alpha}.")
         print("We reject the null hypothesis (H₀). There is a significant difference between the models.")
-        print("This means that the best model's accuracy is significantly different from Model 1's accuracy.")
+        print("This means that Model 1's accuracy is significantly different from Model 2's accuracy.")
     else:
         print(f"p-value = {p_val_1:.4f}, which is greater than {alpha}.")
         print("We fail to reject the null hypothesis (H₀). There is no significant difference between the models.")
-        print("This means that the best model's accuracy is not significantly different from Model 1's accuracy.")
+        print("This means that Model 1's accuracy is not significantly different from Model 2's accuracy.")
     
-    # Compare best model with the second model
-    cm2 = get_contingency_matrix(true_labels, best_model_preds, other_model2_preds)
+    # Compare Model 1 with Model 3
+    cm2 = get_contingency_matrix(true_labels, model1_preds, model3_preds)
     chi2_2, p_val_2 = mcnemar_test(cm2)
-    results['best_vs_model2'] = {'chi2': chi2_2, 'p_value': p_val_2}
+    results['model1_vs_model3'] = {'chi2': chi2_2, 'p_value': p_val_2}
     
-    # Interpret the result for comparison 2
-    print("\nComparison: Best Model vs Model 2")
+    # Interpret the result for Model 1 vs Model 3
+    print("\nComparison: Model 1 vs Model 3")
     if p_val_2 < alpha:
         print(f"p-value = {p_val_2:.4f}, which is less than {alpha}.")
         print("We reject the null hypothesis (H₀). There is a significant difference between the models.")
-        print("This means that the best model's accuracy is significantly different from Model 2's accuracy.")
+        print("This means that Model 1's accuracy is significantly different from Model 3's accuracy.")
     else:
         print(f"p-value = {p_val_2:.4f}, which is greater than {alpha}.")
         print("We fail to reject the null hypothesis (H₀). There is no significant difference between the models.")
-        print("This means that the best model's accuracy is not significantly different from Model 2's accuracy.")
+        print("This means that Model 1's accuracy is not significantly different from Model 3's accuracy.")
+    
+    # Compare Model 2 with Model 3
+    cm3 = get_contingency_matrix(true_labels, model2_preds, model3_preds)
+    chi2_3, p_val_3 = mcnemar_test(cm3)
+    results['model2_vs_model3'] = {'chi2': chi2_3, 'p_value': p_val_3}
+    
+    # Interpret the result for Model 2 vs Model 3
+    print("\nComparison: Model 2 vs Model 3")
+    if p_val_3 < alpha:
+        print(f"p-value = {p_val_3:.4f}, which is less than {alpha}.")
+        print("We reject the null hypothesis (H₀). There is a significant difference between the models.")
+        print("This means that Model 2's accuracy is significantly different from Model 3's accuracy.")
+    else:
+        print(f"p-value = {p_val_3:.4f}, which is greater than {alpha}.")
+        print("We fail to reject the null hypothesis (H₀). There is no significant difference between the models.")
+        print("This means that Model 2's accuracy is not significantly different from Model 3's accuracy.")
     
     return results
-
 
 
 
@@ -463,12 +478,12 @@ if __name__ == "__main__":
     
     
     true_labels = Y_test  # Ground truth labels
-    best_model_preds = y2_pred  # Bagging Tree predictions (as best model)
-    other_model1_preds = y3_pred  # Random Forest predictions
-    other_model2_preds = y1_pred  # Single Tree predictions
+    tree_model_preds = y1_pred  
+    random_forest_model1_preds = y3_pred  
+    baging_model2_preds = y2_pred  
       
   # Comparing models
-    results = compare_models(true_labels, best_model_preds, other_model1_preds, other_model2_preds)
+    results = compare_models(true_labels, tree_model_preds, random_forest_model1_preds, baging_model2_preds)
 
     # Print the results
     print(results)    
